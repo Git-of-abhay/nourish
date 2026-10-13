@@ -1,0 +1,14 @@
+.env
+.env.*
+!.env.example
+backend/.venv/
+backend/data/
+backend/**/__pycache__/
+mobile/node_modules/
+mobile/.expo/
+mobile/android/
+mobile/ios/
+mobile/dist/
+*.apk
+export-android/
+export-web/
