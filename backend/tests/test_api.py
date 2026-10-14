@@ -21,8 +21,11 @@ class FakeTranscriber:
 
 
 class FakeParser:
-    def parse_spoken_meal(self, transcript):
-        return {"foods": ["roti", "dal"], "items": [{"name": "roti", "quantity": 2, "unit": ""}, {"name": "dal", "quantity": 3, "unit": "cup"}], "description": transcript, "uncertainty": "Portions were not mentioned."}
+    def estimate_text(self, text):
+        if "nothing" in text:
+            return {"foods": [], "items": [], "kcal": None, "portion": "", "description": text, "uncertainty": ""}
+        return {"foods": ["roti", "dal"], "items": [{"name": "roti", "quantity": 2, "unit": "", "portion": "2 medium rotis", "kcal": 240}, {"name": "dal", "quantity": 3, "unit": "cup", "portion": "3 cups", "kcal": 600}],
+                "kcal": 840, "portion": "roti: 2 medium rotis; dal: 3 cups", "description": text, "uncertainty": "Portions were assumed."}
 
 
 class FakeAnalyzer:
@@ -136,7 +139,24 @@ class ApiTests(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json["transcript"], "I had two rotis and dal")
         self.assertEqual(response.json["foods"], ["roti", "dal"])
-        self.assertEqual(response.json["items"][1], {"name": "dal", "quantity": 3, "unit": "cup"})
+        self.assertEqual(response.json["items"][1]["kcal"], 600)
+        self.assertEqual(response.json["kcal"], 840)
+
+    def test_describing_a_meal_in_words_is_estimated_too(self):
+        response = self.client.post("/api/analyze/text", headers=self.headers, json={"text": "3 cups of dal and 2 rotis"})
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json["kcal"], 840)
+        self.assertEqual(response.json["transcript"], "3 cups of dal and 2 rotis")
+        self.assertEqual(self.client.post("/api/analyze/text", headers=self.headers, json={"text": "nothing edible"}).status_code, 422)
+        for bad in ({}, {"text": ""}, {"text": "x" * 601}, {"text": 5}):
+            with self.subTest(bad=bad):
+                self.assertEqual(self.client.post("/api/analyze/text", headers=self.headers, json=bad).status_code, 400)
+
+    def test_a_long_multi_food_portion_can_be_saved(self):
+        portion = "; ".join(f"food {i}: 2 medium bowls" for i in range(9))[:200]
+        self.assertGreater(len(portion), 80)
+        self.assertEqual(self.client.post("/api/meals", headers=self.headers, json={**MEAL, "portion": portion, "source": "voice_estimate"}).status_code, 201)
+        self.assertEqual(self.client.post("/api/meals", headers=self.headers, json={**MEAL, "portion": "p" * 201}).status_code, 400)
 
     def test_voice_rejects_non_audio_and_silence(self):
         import base64

@@ -18,10 +18,11 @@ class ModelAdapterTests(unittest.TestCase):
         class Response(io.BytesIO):
             def __enter__(self): return self
             def __exit__(self, *_args): self.close()
-        payload = {"choices": [{"message": {"content": json.dumps({"foods": ["apple"], "description": "An apple", "uncertainty": "Size unknown"})}}]}
+        payload = {"choices": [{"message": {"content": json.dumps({"items": [{"name": "apple", "quantity": 1, "unit": "", "portion": "1 medium", "kcal": 95}], "description": "An apple", "uncertainty": "Size unknown"})}}]}
         with patch("nourish.analysis.urllib.request.urlopen", return_value=Response(json.dumps(payload).encode())) as call:
             result = GroqAnalyzer("test-key").analyze_meal(b"image", "image/png")
         self.assertEqual(result["foods"], ["apple"])
+        self.assertEqual(result["kcal"], 95)
         sent = json.loads(call.call_args.args[0].data)
         self.assertTrue(sent["messages"][0]["content"][1]["image_url"]["url"].startswith("data:image/png;base64,"))
         self.assertNotIn("test-key", json.dumps(sent))

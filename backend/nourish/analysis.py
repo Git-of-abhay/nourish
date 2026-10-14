@@ -7,6 +7,8 @@ import urllib.error
 import urllib.request
 from pathlib import Path
 
+from .meal_estimate import PHOTO_PROMPT, clean_estimate
+
 
 class AnalysisUnavailable(Exception):
     pass
@@ -79,7 +81,7 @@ class GroqAnalyzer:
             "model": self.model,
             "messages": [{"role": "user", "content": content}],
             "temperature": 0.1,
-            "max_completion_tokens": 1800,
+            "max_completion_tokens": 2400,
             "response_format": {"type": "json_object"},
         }).encode("utf-8")
         request = urllib.request.Request(
@@ -104,16 +106,7 @@ class GroqAnalyzer:
             raise AnalysisUnavailable("Analysis could not complete. You can enter details manually.") from exc
 
     def analyze_meal(self, content: bytes, mime: str) -> dict:
-        raw = self._generate([(content, mime)],
-            "Identify only foods visibly present in this image. Return a JSON object with keys: foods (array of short food names, max 8), description (one sentence), uncertainty (one sentence about portions or hidden ingredients). If no food is visible, foods must be empty. Do not estimate calories or invent ingredients.")
-        foods = raw.get("foods", [])
-        if not isinstance(foods, list):
-            foods = []
-        return {
-            "foods": [str(food).strip()[:80] for food in foods[:8] if str(food).strip()],
-            "description": str(raw.get("description", "Check the suggested foods before saving."))[:300],
-            "uncertainty": str(raw.get("uncertainty", "Portions and cooking ingredients are hard to judge from a photo."))[:300],
-        }
+        return clean_estimate(self._generate([(content, mime)], PHOTO_PROMPT))
 
     def analyze_report(self, content: bytes, mime: str) -> dict:
         images = self.renderer.render(content) if mime == "application/pdf" else [(content, mime)]
@@ -129,6 +122,11 @@ class GroqAnalyzer:
         }
 
 
+# Whisper spells unusual food words better when it has seen them first ("dal", not "towel").
+WHISPER_HINT = ("A person says what they ate: dal, roti, chapati, paratha, naan, sabzi, paneer, rajma, chole, sambar, idli, dosa, "
+                "poha, upma, khichdi, biryani, pulao, curd, lassi, chai, samosa, cups, bowls, glasses, plates, pieces.")
+
+
 class GroqTranscriber:
     """Speech to text for spoken meals, using Groq's Whisper endpoint."""
 
@@ -141,7 +139,7 @@ class GroqTranscriber:
             raise AnalysisUnavailable("Voice logging is not configured yet")
         boundary = "nourish" + uuid.uuid4().hex
         parts = []
-        for name, value in (("model", self.model), ("response_format", "json"), ("temperature", "0")):
+        for name, value in (("model", self.model), ("response_format", "json"), ("temperature", "0"), ("language", "en"), ("prompt", WHISPER_HINT)):
             parts.append(f'--{boundary}\r\nContent-Disposition: form-data; name="{name}"\r\n\r\n{value}\r\n'.encode())
         parts.append(f'--{boundary}\r\nContent-Disposition: form-data; name="file"; filename="meal.{extension}"\r\nContent-Type: {mime}\r\n\r\n'.encode() + content + b"\r\n")
         parts.append(f"--{boundary}--\r\n".encode())

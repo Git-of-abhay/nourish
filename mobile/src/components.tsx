@@ -1,6 +1,6 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Ionicons } from '@expo/vector-icons';
-import { Modal, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import { Keyboard, Modal, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import Svg, { Circle, Polyline } from 'react-native-svg';
 import { percent } from './progress';
 import { colors } from './ui';
@@ -9,10 +9,16 @@ import { colors } from './ui';
 export function Sheet({ visible, title, onClose, children }: { visible: boolean; title: string; onClose: () => void; children: React.ReactNode }) {
   const { width } = useWindowDimensions();
   const wide = width >= 768;
+  const [keyboard, setKeyboard] = useState(0);
+  useEffect(() => {
+    const show = Keyboard.addListener('keyboardDidShow', e => setKeyboard(e.endCoordinates.height));
+    const hide = Keyboard.addListener('keyboardDidHide', () => setKeyboard(0));
+    return () => { show.remove(); hide.remove(); };
+  }, []);
   return <Modal visible={visible} transparent animationType={wide ? 'fade' : 'slide'} onRequestClose={onClose}>
     <View style={[c.backdrop, wide && c.backdropWide]}>
       <Pressable accessibilityLabel="Close" style={StyleSheet.absoluteFill} onPress={onClose} />
-      <View style={[c.sheet, wide && c.sheetWide]}>
+      <View style={[c.sheet, wide && c.sheetWide, !wide && keyboard > 0 && { marginBottom: keyboard }]}>
         {!wide && <View style={c.grabber} />}
         <View style={c.sheetHead}><Text style={c.sheetTitle}>{title}</Text><Pressable accessibilityRole="button" accessibilityLabel="Close" onPress={onClose} hitSlop={10}><Ionicons name="close" size={24} color={colors.muted} /></Pressable></View>
         <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ gap: 12, paddingBottom: 24 }}>{children}</ScrollView>

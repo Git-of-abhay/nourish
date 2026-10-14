@@ -58,6 +58,7 @@ export const api = {
   addWorkout: (token: string, workout: { activity: string; minutes: number; logged_on: string }) => request<Workout>('/api/workouts', { method: 'POST', body: JSON.stringify(workout) }, token),
   deleteWorkout: (token: string, id: string) => request<void>(`/api/workouts/${encodeURIComponent(id)}`, { method: 'DELETE' }, token),
   analyzeMeal: (token: string, file: { uri: string; name: string; mimeType: string }) => upload<MealAnalysis>('/api/analyze/meal', token, file),
+  analyzeText: (token: string, text: string) => request<VoiceAnalysis>('/api/analyze/text', { method: 'POST', body: JSON.stringify({ text }) }, token),
   analyzeVoice: (token: string, file: { uri: string }) => uploadAudio<VoiceAnalysis>('/api/analyze/voice', token, file.uri),
   analyzeReport: (token: string, file: { uri: string; name: string; mimeType: string }) => upload<ReportAnalysis>('/api/analyze/report', token, file),
   saveReport: (token: string, report: ReportAnalysis) => request<unknown>('/api/reports', { method: 'POST', body: JSON.stringify(report) }, token),

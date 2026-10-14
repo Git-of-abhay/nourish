@@ -31,9 +31,9 @@ export type MetricTrend = {
   series: number[]; why: string | null; goal_tip: string | null;
 };
 export type Dashboard = { profile: Profile; insight: Insight; activity_plan: { headline: string; ideas: { activity: string; minutes: number; label: string }[]; note: string }; focus: Focus; progress: Progress; meals: Meal[]; workouts: Workout[]; reports: Report[]; metric_trends: MetricTrend[] };
-export type MealAnalysis = { foods: string[]; description: string; uncertainty: string };
-export type SpokenItem = { name: string; quantity: number; unit: string };
-export type VoiceAnalysis = MealAnalysis & { transcript: string; items: SpokenItem[] };
+export type EstimatedItem = { name: string; quantity: number; unit: string; portion: string; kcal: number | null };
+export type MealAnalysis = { foods: string[]; items: EstimatedItem[]; kcal: number | null; portion: string; description: string; uncertainty: string };
+export type VoiceAnalysis = MealAnalysis & { transcript: string };
 export type ReportAnalysis = { title: string; summary: string; metrics: Metric[] };
 export type ChatMessage = { id: string; role: 'user' | 'assistant'; content: string; created_at: string };
 

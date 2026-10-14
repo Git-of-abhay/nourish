@@ -15,7 +15,7 @@ from .db import SqlStore
 from .groq_chat import GroqChatClient
 from .insights import InsightService
 from .progress import FocusService, GamificationService
-from .services import ActivityPlanService, InputError, MealService, ProfileService, ReportService, WorkoutService
+from .services import _text, ActivityPlanService, InputError, MealService, ProfileService, ReportService, WorkoutService
 
 
 def _json():
@@ -211,7 +211,16 @@ def create_app(config=None):
         transcript = app.services["transcriber"].transcribe(content, *audio)
         if not transcript:
             return jsonify(error="I couldn’t hear anything. Try again a little closer to the mic."), 422
-        return jsonify({"transcript": transcript, **app.services["meal_parser"].parse_spoken_meal(transcript)})
+        return jsonify({"transcript": transcript, **app.services["meal_parser"].estimate_text(transcript)})
+
+    @app.post("/api/analyze/text")
+    @_auth
+    def analyze_text():
+        text = _text(_json().get("text"), "text", 600)
+        result = app.services["meal_parser"].estimate_text(text)
+        if not result["items"]:
+            return jsonify(error="I couldn’t spot any food in that. Try listing what you ate."), 422
+        return jsonify({"transcript": text, **result})
 
     @app.get("/api/metrics")
     @_auth

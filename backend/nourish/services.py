@@ -106,7 +106,7 @@ class MealService:
 
     def add(self, profile_id, payload):
         name = _text(payload.get("name"), "name", 100)
-        portion = _text(payload.get("portion"), "portion", 80)
+        portion = _text(payload.get("portion"), "portion", 200)
         kcal = _int(payload.get("kcal"), "kcal", 0, 5000)
         source = _choice(payload.get("source", "manual"), "source", {"manual", "photo_estimate", "voice_estimate"})
         logged_on = _logged_on(payload.get("logged_on"))
