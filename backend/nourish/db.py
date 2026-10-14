@@ -74,8 +74,7 @@ class SqlStore:
     def __init__(self, db: Database, clock):
         self.db = db
         self.clock = clock
-        for statement in SCHEMA:
-            db.execute(statement)
+        db.apply_schema(SCHEMA)
 
     def _now(self) -> str:
         return self.clock().isoformat()

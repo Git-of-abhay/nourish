@@ -11,6 +11,7 @@ class Database(Protocol):
     def execute(self, sql: str, params: Iterable = ()) -> int: ...
     def query(self, sql: str, params: Iterable = ()) -> list[dict]: ...
     def transaction(self): ...
+    def apply_schema(self, statements: list[str]) -> None: ...
     def close(self) -> None: ...
 
 
@@ -53,6 +54,10 @@ class SQLiteDatabase:
         with self._connect() as db:
             yield _Tx(lambda sql, params=(): db.execute(sql, tuple(params)).rowcount)
 
+    def apply_schema(self, statements):
+        for statement in statements:
+            self.execute(statement)
+
     def close(self):
         pass
 
@@ -82,6 +87,13 @@ class PostgresDatabase:
     def transaction(self):
         with self.pool.connection() as conn:
             yield _Tx(lambda sql, params=(): conn.execute(self._sql(sql), tuple(params)).rowcount)
+
+    def apply_schema(self, statements):
+        # Several server workers boot at once; the lock makes them take turns instead of colliding.
+        with self.pool.connection() as conn:
+            conn.execute("SELECT pg_advisory_xact_lock(724001)")
+            for statement in statements:
+                conn.execute(statement)
 
     def close(self):
         self.pool.close()
