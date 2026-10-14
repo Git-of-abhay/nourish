@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { estimateFromNames } from '../foodCatalog';
+import { estimateFromItems, estimateFromNames } from '../foodCatalog';
 
 describe('estimateFromNames', () => {
   it('adds up known foods', () => {
@@ -14,7 +14,6 @@ describe('estimateFromNames', () => {
   });
 });
 
-import { estimateFromItems } from '../foodCatalog';
 
 describe('estimateFromItems', () => {
   it('multiplies by the amount said: 3 cups of dal', () => {
