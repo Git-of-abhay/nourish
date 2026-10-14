@@ -6,7 +6,7 @@ import { localDate } from '../date';
 import { ChatMessage, Dashboard } from '../types';
 import { colors, ErrorNote, Logo, styles } from '../ui';
 
-const suggestions = ['How’s my day going?', 'What did I eat?', 'What could I do next?'];
+const suggestions = ['How’s my day going?', 'What did I eat?', 'How are my numbers?'];
 export function Assistant({ token, data, onReports, onMove }: { token: string; data: Dashboard; onReports: () => void; onMove: () => void }) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [draft, setDraft] = useState('');

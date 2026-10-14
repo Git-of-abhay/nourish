@@ -1,7 +1,10 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { Ionicons } from '@expo/vector-icons';
 import { ActivityIndicator, Image, Pressable, SafeAreaView, StatusBar, StyleSheet, Text, View } from 'react-native';
-import { api, ApiError, guestStore } from './src/api';
+import { api, ApiError, guestStore, warmServer } from './src/api';
+import { Toast } from './src/components';
+import { newlyEarned } from './src/progress';
+import { rememberBadges, seenBadges } from './src/seen';
 import { localDate } from './src/date';
 import { refreshReminder } from './src/notifications';
 import { Assistant } from './src/screens/Assistant';
@@ -24,14 +27,21 @@ export default function App() {
   const [tab, setTab] = useState<Tab>('Home');
   const [starting, setStarting] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [toast, setToast] = useState<{ title: string; message: string } | null>(null);
   const load = useCallback(async (guestToken: string) => {
-    try { const result = await api.dashboard(guestToken, localDate()); setData(result); setError(null); }
+    try {
+      const result = await api.dashboard(guestToken, localDate()); setData(result); setError(null);
+      const seen = await seenBadges();
+      const fresh = newlyEarned(result.progress.badges, seen);
+      if (fresh.length) { setToast({ title: 'Badge unlocked: ' + fresh[0].title, message: fresh[0].detail }); await rememberBadges([...seen, ...fresh.map(b => b.id)]); }
+    }
     catch (e) {
       if (e instanceof ApiError && e.status === 401) { await guestStore.clear(); setToken(null); setData(null); }
       else setError(e instanceof Error ? e.message : 'Couldn’t load your day.');
       throw e;
     }
   }, []);
+  useEffect(() => { warmServer(); }, []);
   useEffect(() => { (async () => {
     try { const saved = await guestStore.get(); if (saved) { setToken(saved); await load(saved).catch(() => {}); } }
     finally { setStarting(false); }
@@ -51,6 +61,7 @@ export default function App() {
   if (!token) return <SafeAreaView style={styles.screen}><StatusBar barStyle="dark-content" /><Onboarding onDone={finishOnboarding} /></SafeAreaView>;
   if (!data) return <SafeAreaView style={[styles.screen, s.center]}><StatusBar barStyle="dark-content" /><Text style={styles.heading}>Your day is waiting for you</Text><ErrorNote message={error} /><Button title="Try again" onPress={() => load(token).catch(() => {})} /></SafeAreaView>;
   return <SafeAreaView style={styles.screen}><StatusBar barStyle="dark-content" backgroundColor={colors.background} />
+    {toast && <Toast title={toast.title} message={toast.message} onDone={() => setToast(null)} />}
     {error && <View style={{ paddingHorizontal: 14 }}><ErrorNote message={error} /></View>}
     <View style={{ flex: 1 }}>
       {tab === 'Home' && <Today data={data} onLog={() => setTab('Meals')} onMove={() => setTab('Move')} onReports={() => setTab('Reports')} onAssistant={() => setTab('Assistant')} onOverview={() => setTab('Overview')} onProfile={() => setTab('Profile')} />}
@@ -69,7 +80,7 @@ export default function App() {
 }
 const s = StyleSheet.create({
   center: { justifyContent: 'center', alignItems: 'center', padding: 24, gap: 16 },
-  nav: { flexDirection: 'row', backgroundColor: '#FFFFFF', paddingHorizontal: 7, paddingVertical: 7, marginHorizontal: 14, marginBottom: 8, borderRadius: 25, shadowColor: '#B08068', shadowOpacity: 0.1, shadowRadius: 10, shadowOffset: { width: 0, height: 6 }, elevation: 5 },
+  nav: { flexDirection: 'row', width: '100%', maxWidth: 620, alignSelf: 'center', backgroundColor: '#FFFFFF', paddingHorizontal: 7, paddingVertical: 7, marginHorizontal: 14, marginBottom: 8, borderRadius: 25, shadowColor: '#B08068', shadowOpacity: 0.1, shadowRadius: 10, shadowOffset: { width: 0, height: 6 }, elevation: 5 },
   navItem: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 7, borderRadius: 15, gap: 3 }, navSelected: { backgroundColor: colors.green },
   navText: { color: colors.muted, fontSize: 10, fontWeight: '700' }, navTextSelected: { color: '#FFFFFF' },
   back: { paddingHorizontal: 20, paddingTop: 12, flexDirection: 'row', gap: 7, alignItems: 'center' }, backText: { color: colors.blue, fontWeight: '700', fontSize: 13 },
