@@ -1,7 +1,8 @@
 import Constants from 'expo-constants';
 import * as FileSystem from 'expo-file-system/legacy';
+import * as ImageManipulator from 'expo-image-manipulator';
 import * as SecureStore from 'expo-secure-store';
-import { Platform } from 'react-native';
+import { Image, Platform } from 'react-native';
 import { ChatMessage, Dashboard, GuestInput, Meal, MealAnalysis, Profile, ReportAnalysis, Workout } from './types';
 
 const TOKEN_KEY = 'dayora_guest_token';
@@ -56,7 +57,37 @@ export const api = {
 };
 
 // Sent as base64 JSON: multipart uploads from local file URIs are unreliable with Expo's fetch.
+function blobToBase64(uri: string): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.onload = () => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(String(reader.result).split(',')[1] || '');
+      reader.onerror = () => reject(new Error('Couldn’t read that file.'));
+      reader.readAsDataURL(xhr.response as Blob);
+    };
+    xhr.onerror = () => reject(new Error('Couldn’t read that file.'));
+    xhr.responseType = 'blob';
+    xhr.open('GET', uri);
+    xhr.send();
+  });
+}
+
+async function readBase64(uri: string): Promise<string> {
+  try { return await FileSystem.readAsStringAsync(uri, { encoding: 'base64' }); }
+  catch { return blobToBase64(uri); }
+}
+
 async function upload<T>(path: string, token: string, file: { uri: string; name: string; mimeType: string }) {
-  const file_base64 = await FileSystem.readAsStringAsync(file.uri, { encoding: 'base64' });
-  return request<T>(path, { method: 'POST', body: JSON.stringify({ file_base64, name: file.name, mime: file.mimeType }) }, token);
+  let file_base64 = '';
+  let mime = file.mimeType;
+  if (file.mimeType.startsWith('image/')) {
+    try {
+      const width = await new Promise<number>(resolve => Image.getSize(file.uri, w => resolve(w), () => resolve(0)));
+      const small = await ImageManipulator.manipulateAsync(file.uri, width > 1600 ? [{ resize: { width: 1600 } }] : [], { compress: 0.8, format: ImageManipulator.SaveFormat.JPEG, base64: true });
+      file_base64 = small.base64 || ''; mime = 'image/jpeg';
+    } catch { /* fall back to reading the file as is */ }
+  }
+  if (!file_base64) file_base64 = await readBase64(file.uri);
+  return request<T>(path, { method: 'POST', body: JSON.stringify({ file_base64, name: file.name, mime }) }, token);
 }
