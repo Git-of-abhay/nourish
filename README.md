@@ -1,57 +1,86 @@
 # Nourish
 
-Nourish is a guest-first personal health assistant. Its four main flows are guided goal setup, meal tracking, goal-aware movement, and a conversation that explains the user's own logs. Report reading is an optional supporting flow. The interface is built with Expo and React Native; the small Flask API uses SQLite. No React web framework or JavaScript backend is needed.
+Nourish is a personal health assistant that does the remembering for you. You tell it a goal once, and it tells you what to work on, why it matters, and gives you a small next step every day. Logging a meal takes one tap: say it, snap it or type it.
 
-## Product choices
+## What you can do
 
-- A guest token avoids a sign-up barrier. It is stored in SecureStore on Android/iOS and localStorage in the browser. Deleting app data loses the token; account recovery and cross-device sync are outside this assignment.
-- A proactive opening message and optional local reminders surface a next step. Rules use actual logs and selected goals; they do not invent vital signs or diagnoses.
-- Meal photos identify likely foods through Groq's vision model. The user reviews the result and edits the portion and estimated calories before saving. Manual entry works without an API key.
-- Reports are sent to Groq only when the user chooses a file. PDF pages are rendered to images first; the first three pages are analyzed. The extracted summary is saved only after confirmation, and can be deleted.
-- Health Connect step reading is opt-in and Android-only. It requires a native development or release build; Expo Go cannot load that native module.
+1. **Get a plan you understand.** Onboarding asks for a goal, what gets in your way and your starting point. The home screen then shows your focus ("Move a little more, most days"), why it matters, and one number that moves as you log.
+2. **Log food in seconds.** Voice (speech to text, then foods picked out of the sentence), camera or gallery (a vision model names the foods), or typing. Every estimate is editable, and nothing is saved before you confirm it.
+3. **Keep going.** Streaks, a seven-day strip, badges and a short celebration when you earn one. If a streak is about to lapse, the daily nudge says so. Optional morning or evening reminders bring you back.
+4. **Understand your reports.** Upload a lab report (image or PDF). The values are extracted, you confirm them, and each marker is then tracked across reports with a trend, the range printed on your report, and a plain explanation of why it matters for your goal.
+5. **Ask.** A chat assistant answers from your own logs. It never invents data, and it points you to a clinician for anything medical.
 
-## How one tap moves through the code
+## Product decisions
 
-`Save meal` in `mobile/src/screens/Meals.tsx` calls `api.addMeal` in `mobile/src/api.ts`. Flask routes the POST through `backend/dayora/app.py`, `MealService` validates it, and `SQLiteStore` writes it. A refreshed dashboard then runs `InsightService` against the saved data and updates the UI. The analyzer is a separate adapter, so a missing model key never blocks manual logging.
+- **Guest-first.** No sign-up. A random token is created on the first launch, stored in SecureStore (localStorage on web) and hashed on the server. Data lives in PostgreSQL, so closing or reinstalling the server never loses it. Deleting the app's data does.
+- **Proactive, not a logbook.** The assistant opens with something useful, the home screen always has a next step, and reminders are opt-in.
+- **Motivation without pressure.** Any meal or movement counts for the day. A streak survives until the end of today, and badges celebrate starting as much as consistency.
+- **Honest about health.** Report values are compared only with the ranges printed on the report. Nothing is called normal or abnormal by the model, and the UI says "not a diagnosis" where it matters. Calories are always editable estimates.
+- **Consent before sharing.** A photo, a voice clip or a report goes to an AI model (Groq) only after an explicit "Share and analyze" tap, and none of them is stored.
+- **Cut on purpose.** No profile screen, no wearable sync beyond optional Health Connect steps, no social features. Three flows done properly beat ten shallow ones.
 
-Each service has one job: validation, persistence, insight rules, activity suggestions, assistant replies, or model calls. Routes compose those services. The analyzer and repository contracts are replaceable. The screens depend on the API layer and typed data instead of database or model details.
+## Architecture
+
+```
+mobile/   Expo (React Native, TypeScript), runs on Android and in the browser
+backend/  Flask API, PostgreSQL (SQLite for local development and tests)
+```
+
+Backend layers, each depending only on the one below it through small interfaces:
+
+| Layer | Files | Responsibility |
+|---|---|---|
+| Routes | `app.py` | HTTP, auth, error mapping. No business rules. |
+| Services | `services.py`, `insights.py`, `progress.py`, `assistant.py` | Validation, goal rules, streaks, badges, focus, assistant. |
+| Domain | `metrics.py` | Parsing report values and ranges, trends, explanations. |
+| Adapters | `analysis.py`, `groq_chat.py` | The only code that knows Groq's wire format: vision, speech, chat. |
+| Storage | `db.py`, `database.py` | `SqlStore` holds the SQL. `Database` has SQLite and PostgreSQL implementations. |
+
+Choices worth knowing about:
+
+- **Goals are rules, not branches.** `InsightService` composes one rule per goal, so adding a goal does not touch the dashboard route.
+- **The store is engine-agnostic.** The same SQL runs on SQLite and PostgreSQL (ISO text for dates, `?` placeholders translated per engine). Tests run on SQLite, and `TEST_DATABASE_URL` runs the API suite against real PostgreSQL.
+- **Schema creation is race-safe.** Server workers take a PostgreSQL advisory lock while creating tables.
+- **Models are replaceable.** The analyzer, transcriber, meal parser and chat model are injected, and the tests use fakes. A missing key never blocks manual logging.
+- **Uploads are base64 JSON.** Local file URIs and multipart are unreliable with Expo's fetch, and photos are shrunk on the phone first, so uploads stay small.
+- **Frontend.** Screens call `api.ts` and typed data only. Shared pieces (`Sheet`, `Toast`, `ProgressBar`, `Sparkline`) live in `components.tsx`, and pure logic lives in `progress.ts` and `foodCatalog.ts` so it can be unit tested. The meal sheet is a bottom sheet on phones and a centered dialog on wide screens.
 
 ## Run locally
 
-Backend:
-
 ```bash
 cd backend
-python -m venv .venv
-.venv/bin/pip install -r requirements.txt
-NOURISH_DEV_CORS=1 .venv/bin/python run.py
-```
+python -m venv .venv && .venv/bin/pip install -r requirements.txt
+NOURISH_DEV_CORS=1 GROQ_API_KEY=... .venv/bin/python run.py     # SQLite, port 5055
+# add DATABASE_URL=postgresql://... to use PostgreSQL
 
-In another terminal:
-
-```bash
-cd mobile
-npm ci
-EXPO_PUBLIC_API_BASE_URL=http://localhost:5055 npx expo start --web --port 8088
-```
-
-Open `http://localhost:8088`. For a phone, replace `localhost` with the computer's reachable Wi-Fi address in `EXPO_PUBLIC_API_BASE_URL`, run the Flask backend on the same network, and use a native build for Health Connect. The development server and its plain HTTP connection are for local evaluation, not a public deployment.
-
-To enable photo and report analysis, set `GROQ_API_KEY` in the **backend process environment**. Never put it in `EXPO_PUBLIC_*`, source files, screenshots, or a public repository. `GROQ_MODEL` optionally overrides the default model. PDF support uses the `pdftoppm` command from Poppler on the backend machine. Analysis sends the chosen image or rendered PDF pages to the model provider. See the privacy notes above before trying personal reports.
-
-## Verify
-
-```bash
-cd backend
-.venv/bin/python -W error::ResourceWarning -m unittest discover -s tests -q
 cd ../mobile
-npx tsc --noEmit
-npx expo lint
-npx expo-doctor
+npm ci
+EXPO_PUBLIC_API_BASE_URL=http://<your-LAN-IP>:5055 npx expo start --lan
 ```
 
-The backend suite covers invalid onboarding, calories, dates, uploads, guest isolation, persistence, assistant history, report deletion, and the derived dashboard. On a physical Android device, also check photo permission denial, notification permission denial, Health Connect unavailable/permission denied, app restart persistence, and an offline backend. Native behavior remains unverified until tested on the device.
+Scan the QR code with Expo Go (SDK 57), or press `w` for the browser. Health Connect steps and reminders need a real build, not Expo Go.
 
-## Current limits
+`GROQ_API_KEY` belongs in the server environment only. Never put it in `EXPO_PUBLIC_*`, in the app or in the repository. Without it, manual logging works and analysis returns a friendly error. Optional: `GROQ_MODEL` (vision), `GROQ_CHAT_MODEL`, `GROQ_SPEECH_MODEL`. PDF reports need `pdftoppm` (Poppler), which the Dockerfile installs.
 
-The Assistant currently answers bounded questions about meals, movement, goals, and saved reports from local rules. Photo and report analysis require a working Groq key and network. Photo calorie estimates are approximate and user editable. This is a self-tracking aid, not a diagnosis or treatment tool. Guest data resides in local SQLite on the backend and is isolated by a bearer token; public hosting needs HTTPS, operational backups, and a privacy policy before real health data is used.
+## Tests
+
+```bash
+cd backend && .venv/bin/python -m unittest discover -s tests -q          # 49 tests, 2 need PostgreSQL
+TEST_DATABASE_URL=postgresql://... .venv/bin/python -m unittest tests.test_postgres
+cd mobile && npx tsc --noEmit && npm test                                # type check and unit tests
+```
+
+The backend suite covers validation, guest isolation, uploads, voice, report trends, streak and badge rules, assistant behaviour, and a full flow on PostgreSQL. On a phone, also try: denying camera and microphone permission, an offline phone, a first request while the free server is waking up, and closing and reopening the app.
+
+## Deploy
+
+`render.yaml` is a Render Blueprint: a free PostgreSQL database and a Docker web service for `backend/`. Set `GROQ_API_KEY` in the dashboard. On the free plan the server sleeps after about 15 minutes idle, so the first request can take around a minute. The app wakes it while the loading screen shows. The free database has a 30-day limit.
+
+Build the Android app with `EXPO_PUBLIC_API_BASE_URL` set to the service URL. The release build is arm64 only with minification and resource shrinking (about 27 MB).
+
+## Known limits
+
+- Photo and voice estimates are approximate. The calorie table covers common foods and anything else is typed by the user.
+- Guest data cannot move between devices, and there is no account recovery.
+- The assistant answers about meals, movement, goals and saved reports. It does not give medical advice.
+- Public hosting of real health data needs HTTPS (Render provides it), backups and a privacy policy.
