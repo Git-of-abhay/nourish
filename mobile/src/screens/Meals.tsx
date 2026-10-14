@@ -7,7 +7,7 @@ import { api } from '../api';
 import { Sheet } from '../components';
 import { confirmAction } from '../confirm';
 import { localDate } from '../date';
-import { estimateFromItems } from '../foodCatalog';
+import { estimateFromItems, isCalorieFree } from '../foodCatalog';
 import { EstimatedItem, Meal, MealAnalysis, MealSource } from '../types';
 import { VoiceRecorder } from '../VoiceRecorder';
 import { Button, Card, colors, ErrorNote, styles, Subtle, Title } from '../ui';
@@ -63,9 +63,10 @@ export function Meals({ token, meals, onChanged }: { token: string; meals: Meal[
     setName(result.foods.join(' + ').slice(0, 100));
     const fallback = result.kcal === null ? estimateFromItems(result.items) : null;
     const total = result.kcal ?? fallback?.kcal ?? null;
+    const usable = total !== null && (total > 0 || result.foods.every(isCalorieFree));
     setPortion((result.portion || fallback?.portion || '').slice(0, 200));
-    setKcal(total === null ? '' : String(total));
-    if (total === null) setError('I couldn’t estimate the calories for this one. Add them below.');
+    setKcal(usable ? String(total) : '');
+    if (!usable) setError('I couldn’t estimate the calories for this one. Add them below.');
   }
 
   async function analyzePhoto() {
@@ -105,6 +106,7 @@ export function Meals({ token, meals, onChanged }: { token: string; meals: Meal[
     if (!name.trim()) return setError('Add what you ate.');
     if (!portion.trim()) return setError('Add the portion, for example 1 cup.');
     if (kcal.trim() === '' || !Number.isInteger(number) || number < 0 || number > 5000) return setError('Calories should be a whole number from 0 to 5000.');
+    if (number === 0 && !isCalorieFree(name.trim())) return setError('Food always has some calories. Only water or a plain black coffee or tea can be 0, so add an estimate.');
     setBusy(true);
     try {
       await api.addMeal(token, { name: name.trim(), portion: portion.trim(), kcal: number, source, logged_on: localDate() });

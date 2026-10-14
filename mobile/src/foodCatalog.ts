@@ -40,3 +40,10 @@ export function estimateFromItems(items: { name: string; quantity: number }[]): 
     portion: matches.map(({ item, food }) => `${item.name}: ${scalePortion(food?.portion || '', item.quantity)}`).join('; '),
   };
 }
+
+const CALORIE_FREE = /^(plain |cold |hot |warm |mineral |sparkling |soda |lemon |tap |filtered )?water$|^(black|green|herbal|unsweetened) (coffee|tea)$|^(black )?(coffee|tea) (without|with no) (sugar|milk)$|^(diet|zero)( sugar)? (coke|cola|soda|pepsi)$|^soda water$/i;
+
+/** Only water-like drinks can honestly be 0 kcal. Everything else has energy. */
+export function isCalorieFree(name: string): boolean {
+  return CALORIE_FREE.test(name.trim().replace(/\s+/g, ' '));
+}

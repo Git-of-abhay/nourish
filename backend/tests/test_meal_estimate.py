@@ -1,6 +1,6 @@
 import unittest
 
-from nourish.meal_estimate import TEXT_PROMPT, clean_estimate
+from nourish.meal_estimate import TEXT_PROMPT, clean_estimate, is_calorie_free
 
 
 def item(**over):
@@ -49,6 +49,28 @@ class CleanEstimateTests(unittest.TestCase):
     def test_portion_summary_fits_the_save_limit(self):
         many = [item(name=f"food {i}", portion="1 big bowl of something") for i in range(8)]
         self.assertLessEqual(len(clean_estimate({"items": many})["portion"]), 200)
+
+    def test_zero_calories_is_rejected_for_real_food(self):
+        for food in ("dal", "chai with milk and sugar", "orange juice", "olive oil"):
+            with self.subTest(food=food):
+                result = clean_estimate({"items": [item(name=food, kcal=0)]})
+                self.assertIsNone(result["items"][0]["kcal"])
+                self.assertIsNone(result["kcal"])
+
+    def test_water_may_be_zero(self):
+        for drink in ("water", "Plain Water", "black coffee", "green tea", "soda water", "unsweetened tea"):
+            with self.subTest(drink=drink):
+                self.assertTrue(is_calorie_free(drink))
+                self.assertEqual(clean_estimate({"items": [item(name=drink, quantity=1, kcal=0)]})["kcal"], 0)
+
+    def test_drinks_with_energy_are_not_calorie_free(self):
+        for drink in ("coconut water", "milk tea", "lassi", "sugarcane juice", "water melon", "watermelon"):
+            with self.subTest(drink=drink):
+                self.assertFalse(is_calorie_free(drink))
+
+    def test_water_alongside_food_does_not_hide_missing_calories(self):
+        result = clean_estimate({"items": [item(name="water", kcal=0), item(name="rice", kcal=0)]})
+        self.assertIsNone(result["kcal"])
 
     def test_a_model_that_returns_plain_names_still_works(self):
         result = clean_estimate({"foods": ["rice", "dal", 5]})

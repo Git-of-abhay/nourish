@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { estimateFromItems, estimateFromNames } from '../foodCatalog';
+import { estimateFromItems, estimateFromNames, isCalorieFree } from '../foodCatalog';
 
 describe('estimateFromNames', () => {
   it('adds up known foods', () => {
@@ -29,5 +29,12 @@ describe('estimateFromItems', () => {
   });
   it('leaves the estimate empty for unknown foods', () => {
     expect(estimateFromItems([{ name: 'quinoa', quantity: 2 }])).toEqual({ kcal: null, portion: '' });
+  });
+});
+
+describe('isCalorieFree', () => {
+  it('allows water-like drinks only', () => {
+    for (const name of ['water', 'Plain Water', 'black coffee', 'green tea', 'soda water']) expect(isCalorieFree(name)).toBe(true);
+    for (const name of ['coconut water', 'milk tea', 'lassi', 'dal', 'watermelon', 'juice']) expect(isCalorieFree(name)).toBe(false);
   });
 });

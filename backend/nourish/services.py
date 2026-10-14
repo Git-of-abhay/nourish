@@ -5,6 +5,7 @@ import uuid
 from datetime import date, timedelta
 
 from . import metrics as markers
+from .meal_estimate import is_calorie_free
 from .contracts import MealRepository, ProfileRepository, ReportRepository, WorkoutRepository
 
 
@@ -108,6 +109,8 @@ class MealService:
         name = _text(payload.get("name"), "name", 100)
         portion = _text(payload.get("portion"), "portion", 200)
         kcal = _int(payload.get("kcal"), "kcal", 0, 5000)
+        if kcal == 0 and not is_calorie_free(name):
+            raise InputError("kcal must be above 0 unless it is water or another calorie-free drink")
         source = _choice(payload.get("source", "manual"), "source", {"manual", "photo_estimate", "voice_estimate"})
         logged_on = _logged_on(payload.get("logged_on"))
         return self.meals.insert_meal({"id": str(uuid.uuid4()), "profile_id": profile_id, "name": name, "portion": portion, "kcal": kcal, "source": source, "logged_on": logged_on})

@@ -152,6 +152,11 @@ class ApiTests(unittest.TestCase):
             with self.subTest(bad=bad):
                 self.assertEqual(self.client.post("/api/analyze/text", headers=self.headers, json=bad).status_code, 400)
 
+    def test_zero_calories_only_saves_for_water(self):
+        self.assertEqual(self.client.post("/api/meals", headers=self.headers, json={**MEAL, "kcal": 0}).status_code, 400)
+        self.assertEqual(self.client.post("/api/meals", headers=self.headers, json={**MEAL, "name": "Water", "portion": "1 glass", "kcal": 0}).status_code, 201)
+        self.assertEqual(self.client.post("/api/meals", headers=self.headers, json={**MEAL, "kcal": 1}).status_code, 201)
+
     def test_a_long_multi_food_portion_can_be_saved(self):
         portion = "; ".join(f"food {i}: 2 medium bowls" for i in range(9))[:200]
         self.assertGreater(len(portion), 80)

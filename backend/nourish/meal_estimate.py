@@ -4,7 +4,21 @@ The model does the estimating, but every value is bounded here and the person co
 before anything is saved, so a wrong guess can never silently reach their log.
 """
 
+import re
+
 MAX_ITEM_KCAL = 3000
+
+# Only these may honestly be zero calories. Everything else has energy.
+_CALORIE_FREE = re.compile(
+    r"^(plain |cold |hot |warm |mineral |sparkling |soda |lemon |tap |filtered )?water$"
+    r"|^(black|green|herbal|unsweetened) (coffee|tea)$|^(black )?(coffee|tea) (without|with no) (sugar|milk)$"
+    r"|^(diet|zero)( sugar)? (coke|cola|soda|pepsi)$|^soda water$",
+    re.I,
+)
+
+
+def is_calorie_free(name: str) -> bool:
+    return bool(_CALORIE_FREE.match(re.sub(r"\s+", " ", str(name).strip())))
 MAX_TOTAL_KCAL = 5000
 
 _RULES = (
@@ -19,6 +33,8 @@ _RULES = (
     "1 cup cooked dal about 200 kcal, 1 idli about 60 kcal, 1 plain dosa about 170 kcal, 1 egg about 72 kcal, "
     "1 slice of bread about 80 kcal, 1 medium banana about 105 kcal. "
     "Multiply by the amount: 3 cups of dal is about 600 kcal, 2 rotis about 240 kcal. "
+    "No food or drink with energy is ever 0 kcal: tea or coffee with milk and sugar, juice, lassi, soup, oil, nuts and every snack have calories. "
+    "Only plain water, plain black coffee or unsweetened tea may be 0 or 2 kcal. "
     "If no amount is visible or said, assume one typical serving and say so in uncertainty. "
     "Never add foods that are not there. Convert spoken numbers to digits (three becomes 3, half becomes 0.5). "
     "Also return description (one sentence) and uncertainty (one short sentence about what you assumed)."
@@ -67,12 +83,15 @@ def clean_estimate(raw) -> dict:
         if not 0.25 <= quantity <= 20:
             quantity = 1.0
         kcal = _number(entry.get("kcal"))
-        kcal = int(round(kcal)) if kcal is not None and 0 <= kcal <= MAX_ITEM_KCAL else None
+        name = str(entry["name"]).strip()
+        # Zero is believable only for water-like drinks; for anything else it means the model gave up.
+        floor = 0 if is_calorie_free(name) else 1
+        kcal = int(round(kcal)) if kcal is not None and floor <= round(kcal) <= MAX_ITEM_KCAL else None
         unit = str(entry.get("unit", "")).strip()[:20]
         portion = str(entry.get("portion", "")).strip()[:60] or (f"{quantity:g} {unit}".strip())
         grams = _number(entry.get("grams"))
         grams = int(round(grams)) if grams is not None and 1 <= grams <= 3000 else None
-        items.append({"name": str(entry["name"]).strip()[:80], "quantity": round(quantity, 2), "unit": unit, "portion": portion, "kcal": kcal, "grams": grams})
+        items.append({"name": name[:80], "quantity": round(quantity, 2), "unit": unit, "portion": portion, "kcal": kcal, "grams": grams})
     known = [item["kcal"] for item in items if item["kcal"] is not None]
     total = sum(known) if known and len(known) == len(items) else None
     return {
