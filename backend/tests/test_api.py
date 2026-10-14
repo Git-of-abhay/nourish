@@ -104,6 +104,15 @@ class ApiTests(unittest.TestCase):
         response = self.client.post("/api/analyze/meal", headers=self.headers, data={"file": (io.BytesIO(content), "meal.jpg")})
         self.assertEqual(response.status_code, 503)
 
+    def test_photo_analysis_accepts_base64_json(self):
+        import base64
+        content = b"\xff\xd8\xff" + b"x" * 20
+        response = self.client.post("/api/analyze/meal", headers=self.headers, json={"file_base64": base64.b64encode(content).decode()})
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json["foods"], ["rice"])
+        self.assertEqual(self.client.post("/api/analyze/meal", headers=self.headers, json={"file_base64": "!!!"}).status_code, 400)
+        self.assertEqual(self.client.post("/api/analyze/meal", headers=self.headers, json={}).status_code, 400)
+
     def test_report_requires_confirmed_save(self):
         content = b"%PDF-1.4" + b"x" * 20
         result = self.client.post("/api/analyze/report", headers=self.headers, data={"file": (io.BytesIO(content), "report.pdf")})

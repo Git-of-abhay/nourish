@@ -1,4 +1,5 @@
 import Constants from 'expo-constants';
+import * as FileSystem from 'expo-file-system/legacy';
 import * as SecureStore from 'expo-secure-store';
 import { Platform } from 'react-native';
 import { ChatMessage, Dashboard, GuestInput, Meal, MealAnalysis, Profile, ReportAnalysis, Workout } from './types';
@@ -54,8 +55,8 @@ export const api = {
   askAssistant: (token: string, question: string, today: string) => request<{ answer: string }>('/api/assistant/messages', { method: 'POST', body: JSON.stringify({ question, today }) }, token),
 };
 
-function upload<T>(path: string, token: string, file: { uri: string; name: string; mimeType: string }) {
-  const body = new FormData();
-  body.append('file', { uri: file.uri, name: file.name, type: file.mimeType } as unknown as Blob);
-  return request<T>(path, { method: 'POST', body }, token);
+// Sent as base64 JSON: multipart uploads from local file URIs are unreliable with Expo's fetch.
+async function upload<T>(path: string, token: string, file: { uri: string; name: string; mimeType: string }) {
+  const file_base64 = await FileSystem.readAsStringAsync(file.uri, { encoding: 'base64' });
+  return request<T>(path, { method: 'POST', body: JSON.stringify({ file_base64, name: file.name, mime: file.mimeType }) }, token);
 }

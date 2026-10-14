@@ -1,3 +1,4 @@
+import base64
 import json
 import os
 from urllib.parse import urlparse
@@ -38,10 +39,19 @@ def _auth(route):
 
 
 def _upload(allow_pdf=False):
-    item = request.files.get("file")
-    if not item:
-        raise InputError("choose a file")
-    content = item.read(5 * 1024 * 1024 + 1)
+    if request.is_json:
+        encoded = (request.get_json(silent=True) or {}).get("file_base64")
+        if not isinstance(encoded, str) or not encoded:
+            raise InputError("choose a file")
+        try:
+            content = base64.b64decode(encoded, validate=True)
+        except ValueError:
+            raise InputError("file could not be read") from None
+    else:
+        item = request.files.get("file")
+        if not item:
+            raise InputError("choose a file")
+        content = item.read(5 * 1024 * 1024 + 1)
     if not content or len(content) > 5 * 1024 * 1024:
         raise InputError("file must be between 1 byte and 5 MB")
     mime = detect_file_type(content, allow_pdf)
@@ -57,7 +67,7 @@ def create_app(config=None):
         GROQ_API_KEY=os.environ.get("GROQ_API_KEY", ""),
         GROQ_MODEL=os.environ.get("GROQ_MODEL", "qwen/qwen3.8-27b"),
         GROQ_CHAT_MODEL=os.environ.get("GROQ_CHAT_MODEL", "openai/gpt-oss-20b"),
-        MAX_CONTENT_LENGTH=6 * 1024 * 1024,
+        MAX_CONTENT_LENGTH=9 * 1024 * 1024,
         DEV_CORS=os.environ.get("NOURISH_DEV_CORS") == "1",
     )
     if config:
