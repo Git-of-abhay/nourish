@@ -88,6 +88,10 @@ class CleanEstimateTests(unittest.TestCase):
         self.assertIn("scale", PHOTO_PROMPT)
         self.assertIn("Always give a calorie estimate", PHOTO_PROMPT)
 
+    def test_prompt_covers_water_and_keeps_qualifiers(self):
+        self.assertIn("a glass of water is name 'water' with kcal 0", TEXT_PROMPT)
+        self.assertIn("Keep qualifiers in the name", TEXT_PROMPT)
+
     def test_prompt_teaches_the_multiplication(self):
         self.assertIn("3 cups of dal is about 600 kcal", TEXT_PROMPT)
 
