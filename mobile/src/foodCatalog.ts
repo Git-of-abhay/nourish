@@ -20,3 +20,23 @@ export function estimateFromNames(names: string[]): { kcal: number | null; porti
   if (!matches.length || matches.some(match => !match)) return { kcal: null, portion: '' };
   return { kcal: matches.reduce((sum, match) => sum + (match?.kcal || 0), 0), portion: matches.map((match, index) => `${names[index]}: ${match?.portion}`).join('; ') };
 }
+
+const PLURAL_UNITS = ['cup', 'piece', 'slice', 'bowl'];
+
+function scalePortion(portion: string, quantity: number): string {
+  if (quantity === 1) return portion;
+  const rest = portion.replace(/^1\s+/, '');
+  const [first, ...others] = rest.split(' ');
+  const unit = PLURAL_UNITS.includes(first) ? first + 's' : first;
+  return [`${Number(quantity.toFixed(2))}`, unit, ...others].join(' ');
+}
+
+/** Like estimateFromNames, but multiplies each food by the amount the person said. */
+export function estimateFromItems(items: { name: string; quantity: number }[]): { kcal: number | null; portion: string } {
+  const matches = items.map(item => ({ item, food: foods.find(food => food.terms.some(term => item.name.toLowerCase().includes(term))) }));
+  if (!matches.length || matches.some(match => !match.food)) return { kcal: null, portion: '' };
+  return {
+    kcal: Math.round(matches.reduce((sum, { item, food }) => sum + (food?.kcal || 0) * item.quantity, 0)),
+    portion: matches.map(({ item, food }) => `${item.name}: ${scalePortion(food?.portion || '', item.quantity)}`).join('; '),
+  };
+}

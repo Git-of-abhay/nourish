@@ -22,7 +22,7 @@ class FakeTranscriber:
 
 class FakeParser:
     def parse_spoken_meal(self, transcript):
-        return {"foods": ["roti", "dal"], "description": transcript, "uncertainty": "Portions were not mentioned."}
+        return {"foods": ["roti", "dal"], "items": [{"name": "roti", "quantity": 2, "unit": ""}, {"name": "dal", "quantity": 3, "unit": "cup"}], "description": transcript, "uncertainty": "Portions were not mentioned."}
 
 
 class FakeAnalyzer:
@@ -136,6 +136,7 @@ class ApiTests(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json["transcript"], "I had two rotis and dal")
         self.assertEqual(response.json["foods"], ["roti", "dal"])
+        self.assertEqual(response.json["items"][1], {"name": "dal", "quantity": 3, "unit": "cup"})
 
     def test_voice_rejects_non_audio_and_silence(self):
         import base64

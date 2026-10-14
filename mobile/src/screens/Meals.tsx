@@ -7,7 +7,7 @@ import { api } from '../api';
 import { Sheet } from '../components';
 import { confirmAction } from '../confirm';
 import { localDate } from '../date';
-import { estimateFromNames } from '../foodCatalog';
+import { estimateFromItems, estimateFromNames } from '../foodCatalog';
 import { Meal, MealSource } from '../types';
 import { VoiceRecorder } from '../VoiceRecorder';
 import { Button, Card, colors, ErrorNote, styles, Subtle, Title } from '../ui';
@@ -54,11 +54,11 @@ export function Meals({ token, meals, onChanged }: { token: string; meals: Meal[
     } catch { setMode('type'); setError('Couldn’t open that image. Try another or type it in.'); }
   }
 
-  function fill(foods: string[], from: MealSource) {
+  function fill(foods: string[], from: MealSource, items?: { name: string; quantity: number }[]) {
     setSource(from);
     if (!foods.length) return setError('Couldn’t spot any food. Add the details below.');
     setName(foods.join(' + '));
-    const estimate = estimateFromNames(foods);
+    const estimate = items ? estimateFromItems(items) : estimateFromNames(foods);
     if (estimate.kcal !== null) setKcal(String(estimate.kcal));
     if (estimate.portion) setPortion(estimate.portion);
   }
@@ -80,7 +80,7 @@ export function Meals({ token, meals, onChanged }: { token: string; meals: Meal[
     try {
       const result = await api.analyzeVoice(token, { uri: voiceUri });
       setHeard(result.transcript); setNote(result.uncertainty);
-      fill(result.foods, 'voice_estimate');
+      fill(result.foods, 'voice_estimate', result.items);
     } catch (e) { setError(e instanceof Error ? e.message : 'Couldn’t analyze that. You can still type it in.'); }
     finally { setBusy(false); }
   }
