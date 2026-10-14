@@ -3,6 +3,7 @@ import uuid
 from .analysis import AnalysisUnavailable
 from .services import _text
 
+GOAL_WORDS = {"eat_consistently": "build a steady meal routine", "calorie_awareness": "understand their calorie target", "move_more": "move more often", "feel_better": "feel more balanced"}
 REPORT_WORDS = ("report", "blood", "test", "lab", "cholesterol", "sugar", "vitamin", "hba1c")
 
 
@@ -50,9 +51,9 @@ class AssistantService:
             reply = "I can help you understand today's meals, movement, goal progress, or a saved report. Try asking one of those, or use a suggested question below."
         if not report_question:
             facts = {
-                "goal": profile["goal"],
-                "obstacle": profile["obstacle"],
-                "activity_level": profile["activity_level"],
+                "goal": GOAL_WORDS[profile["goal"]],
+                "obstacle": profile["obstacle"].replace("_", " "),
+                "activity_level": profile["activity_level"].replace("_", " "),
                 "today": today,
                 "meals_today": [{"name": meal["name"], "kcal_estimate": meal["kcal"]} for meal in meals if meal["logged_on"] == today][:10],
                 "movement_today": [{"activity": workout["activity"], "minutes": workout["minutes"]} for workout in workouts if workout["logged_on"] == today][:10],
