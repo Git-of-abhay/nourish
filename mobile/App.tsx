@@ -61,14 +61,14 @@ export default function App() {
     </View>
     {tab !== 'Profile' && <View style={s.nav}>{tabs.map(item => {
       const active = tab === item.name || tab === 'Reports' && item.name === 'Overview';
-      return <Pressable key={item.name} accessibilityRole="tab" accessibilityState={{ selected: active }} onPress={() => { setError(null); setTab(item.name); }} style={[s.navItem, active && s.navSelected]}><Ionicons name={active ? ({ Home: 'home', Meals: 'restaurant', Overview: 'grid', Assistant: 'chatbubble-ellipses', Move: 'walk' } as Record<string, keyof typeof Ionicons.glyphMap>)[item.name] : item.icon} size={19} color={active ? colors.ink : colors.muted} /><Text style={[s.navText, active && s.navTextSelected]}>{item.name}</Text></Pressable>;
+      return <Pressable key={item.name} accessibilityRole="tab" accessibilityState={{ selected: active }} onPress={() => { setError(null); setTab(item.name); }} style={[s.navItem, active && s.navSelected]}><Ionicons name={active ? ({ Home: 'home', Meals: 'restaurant', Overview: 'grid', Assistant: 'chatbubble-ellipses', Move: 'walk' } as Record<string, keyof typeof Ionicons.glyphMap>)[item.name] : item.icon} size={19} color={active ? '#FFFFFF' : colors.muted} /><Text style={[s.navText, active && s.navTextSelected]}>{item.name}</Text></Pressable>;
     })}</View>}
   </SafeAreaView>;
 }
 const s = StyleSheet.create({
   center: { justifyContent: 'center', alignItems: 'center', padding: 24, gap: 16 },
-  nav: { flexDirection: 'row', backgroundColor: '#FFFFFF', paddingHorizontal: 7, paddingVertical: 7, marginHorizontal: 14, marginBottom: 8, borderRadius: 25, shadowColor: '#DDB7C3', shadowOpacity: 0.2, shadowRadius: 14, shadowOffset: { width: 0, height: 6 }, elevation: 5 },
+  nav: { flexDirection: 'row', backgroundColor: '#FFFFFF', paddingHorizontal: 7, paddingVertical: 7, marginHorizontal: 14, marginBottom: 8, borderRadius: 25, shadowColor: '#B08068', shadowOpacity: 0.1, shadowRadius: 10, shadowOffset: { width: 0, height: 6 }, elevation: 5 },
   navItem: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 7, borderRadius: 15, gap: 3 }, navSelected: { backgroundColor: colors.green },
-  navText: { color: colors.muted, fontSize: 10, fontWeight: '700' }, navTextSelected: { color: colors.ink },
+  navText: { color: colors.muted, fontSize: 10, fontWeight: '700' }, navTextSelected: { color: '#FFFFFF' },
   back: { paddingHorizontal: 20, paddingTop: 12, flexDirection: 'row', gap: 7, alignItems: 'center' }, backText: { color: colors.blue, fontWeight: '700', fontSize: 13 },
 });

@@ -1,12 +1,16 @@
 import React from 'react';
 import { Ionicons } from '@expo/vector-icons';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 
 export const colors = {
-  background: '#FFF7F4', paper: '#FFFFFF', ink: '#4A2C3A', muted: '#94798A',
-  green: '#F6B1C3', paleGreen: '#FDE6EE', peach: '#FFF0E5', line: '#F5DDE6', red: '#C7526B',
-  purple: '#B48FD4', teal: '#6FA384', blue: '#C75B86', sky: '#FFE0E9',
+  background: '#FFF8F1', paper: '#FFFFFF', ink: '#33241F', muted: '#7E6A63',
+  green: '#D94F70', paleGreen: '#FDE3E7', peach: '#FFF0E5', line: '#F0E1D8', red: '#C7526B',
+  purple: '#9B7FC0', teal: '#3F9A74', blue: '#C23F61', sky: '#FFE0E9',
 };
+
+export function Logo({ size = 24 }: { size?: number }) {
+  return <Image source={require('../assets/splash-icon.png')} style={{ width: size, height: size }} resizeMode="contain" />;
+}
 
 export function Card({ children, style }: { children: React.ReactNode; style?: object }) {
   return <View style={[styles.card, style]}>{children}</View>;
@@ -33,15 +37,15 @@ export function ErrorNote({ message }: { message: string | null }) { return mess
 export const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.background },
   content: { padding: 20, paddingBottom: 114, gap: 14, width: '100%', maxWidth: 620, alignSelf: 'center' },
-  card: { backgroundColor: colors.paper, borderRadius: 24, padding: 18, borderWidth: 1, borderColor: '#FFF9FA', gap: 10, shadowColor: '#DDB7C3', shadowOffset: { width: 0, height: 7 }, shadowOpacity: 0.17, shadowRadius: 18, elevation: 3 },
+  card: { backgroundColor: colors.paper, borderRadius: 24, padding: 18, borderWidth: 1, borderColor: '#F0E1D8', gap: 10, shadowColor: '#B08068', shadowOffset: { width: 0, height: 7 }, shadowOpacity: 0.08, shadowRadius: 10, elevation: 2 },
   title: { fontSize: 29, lineHeight: 35, fontWeight: '800', color: colors.ink, letterSpacing: -0.7 },
   heading: { fontSize: 19, lineHeight: 25, fontWeight: '700', color: colors.ink },
   body: { fontSize: 16, lineHeight: 23, color: colors.ink },
   subtle: { color: colors.muted, fontSize: 14, lineHeight: 20 },
   eyebrow: { color: colors.blue, fontWeight: '800', fontSize: 11, letterSpacing: 1.2, textTransform: 'uppercase' },
-  button: { backgroundColor: colors.green, borderRadius: 18, minHeight: 50, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 16, shadowColor: '#DDB7C3', shadowOpacity: 0.18, shadowRadius: 9, shadowOffset: { width: 0, height: 4 } },
-  buttonText: { color: colors.ink, fontSize: 16, fontWeight: '700' },
-  secondary: { backgroundColor: colors.paleGreen, shadowOpacity: 0 },
+  button: { backgroundColor: colors.green, borderRadius: 18, minHeight: 50, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 16, shadowColor: '#B08068', shadowOpacity: 0.18, shadowRadius: 9, shadowOffset: { width: 0, height: 4 } },
+  buttonText: { color: '#FFFFFF', fontSize: 16, fontWeight: '700' },
+  secondary: { backgroundColor: colors.paleGreen, shadowOpacity: 0, elevation: 0 },
   quiet: { backgroundColor: 'transparent', shadowOpacity: 0 },
   secondaryText: { color: colors.blue },
   choice: { borderWidth: 1, borderColor: colors.line, borderRadius: 16, backgroundColor: colors.paper, padding: 16, minHeight: 62, flexDirection: 'row', alignItems: 'center', gap: 8 },
