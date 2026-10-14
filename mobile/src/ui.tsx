@@ -3,9 +3,9 @@ import { Ionicons } from '@expo/vector-icons';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 export const colors = {
-  background: '#FFF3F7', paper: '#FFFFFF', ink: '#4A2C3A', muted: '#94798A',
-  green: '#F8BBD0', paleGreen: '#FDE6EE', peach: '#FFF0E5', line: '#F5DDE6', red: '#C7526B',
-  purple: '#B48FD4', teal: '#C48BA2', blue: '#C75B86', sky: '#FFE0E9',
+  background: '#FFF7F4', paper: '#FFFFFF', ink: '#4A2C3A', muted: '#94798A',
+  green: '#F6B1C3', paleGreen: '#FDE6EE', peach: '#FFF0E5', line: '#F5DDE6', red: '#C7526B',
+  purple: '#B48FD4', teal: '#6FA384', blue: '#C75B86', sky: '#FFE0E9',
 };
 
 export function Card({ children, style }: { children: React.ReactNode; style?: object }) {
