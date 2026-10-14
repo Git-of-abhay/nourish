@@ -55,6 +55,17 @@ class CleanEstimateTests(unittest.TestCase):
         self.assertEqual(result["foods"], ["rice", "dal"])
         self.assertIsNone(result["kcal"])
 
+    def test_estimated_weight_is_kept_when_sensible(self):
+        self.assertEqual(clean_estimate({"items": [item(grams=250.4)]})["items"][0]["grams"], 250)
+        for bad in (None, 0, -3, 99999, "heavy"):
+            self.assertIsNone(clean_estimate({"items": [item(grams=bad)]})["items"][0]["grams"])
+
+    def test_photo_prompt_asks_for_scale_and_every_calorie(self):
+        from nourish.meal_estimate import PHOTO_PROMPT
+        self.assertIn("katori", PHOTO_PROMPT)
+        self.assertIn("scale", PHOTO_PROMPT)
+        self.assertIn("Always give a calorie estimate", PHOTO_PROMPT)
+
     def test_prompt_teaches_the_multiplication(self):
         self.assertIn("3 cups of dal is about 600 kcal", TEXT_PROMPT)
 

@@ -31,9 +31,16 @@ TEXT_PROMPT = (
 )
 
 PHOTO_PROMPT = (
-    "Look at this photo of a meal. Identify only foods that are visibly present and estimate the visible amount of each. "
+    "Look at this photo of a meal and estimate what is on the plate. Work like a dietitian: "
+    "1) identify only foods that are visibly present; "
+    "2) find objects that give scale, such as the plate, bowl, katori, spoon, fork, glass, hand or table, and judge each food's size against them "
+    "(a standard dinner plate is about 25 cm across, a katori or small bowl holds about 150 ml, a tablespoon about 15 ml, a drinking glass about 250 ml); "
+    "3) estimate the weight of each food in grams from its size and how heaped or flat it is; "
+    "4) turn the weight into calories using typical energy density, and include visible oil, ghee, butter, gravy or fried coating. "
     "Return a JSON object with the key items (an array of up to 8 foods) plus description and uncertainty. " + _RULES
-    + " Judge portions from the plate, bowl or other objects for scale. If no food is visible, items must be empty."
+    + " Add grams (your estimated weight of that food in grams, a whole number) to every food. "
+    "Always give a calorie estimate for every food you can see, even when you are unsure. Say what you assumed in uncertainty, "
+    "for example that the bowl looks like a 250 ml serving. If no food is visible, items must be empty."
 )
 
 
@@ -63,7 +70,9 @@ def clean_estimate(raw) -> dict:
         kcal = int(round(kcal)) if kcal is not None and 0 <= kcal <= MAX_ITEM_KCAL else None
         unit = str(entry.get("unit", "")).strip()[:20]
         portion = str(entry.get("portion", "")).strip()[:60] or (f"{quantity:g} {unit}".strip())
-        items.append({"name": str(entry["name"]).strip()[:80], "quantity": round(quantity, 2), "unit": unit, "portion": portion, "kcal": kcal})
+        grams = _number(entry.get("grams"))
+        grams = int(round(grams)) if grams is not None and 1 <= grams <= 3000 else None
+        items.append({"name": str(entry["name"]).strip()[:80], "quantity": round(quantity, 2), "unit": unit, "portion": portion, "kcal": kcal, "grams": grams})
     known = [item["kcal"] for item in items if item["kcal"] is not None]
     total = sum(known) if known and len(known) == len(items) else None
     return {
