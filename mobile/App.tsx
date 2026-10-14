@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { Ionicons } from '@expo/vector-icons';
-import { ActivityIndicator, Pressable, SafeAreaView, StatusBar, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Image, Pressable, SafeAreaView, StatusBar, StyleSheet, Text, View } from 'react-native';
 import { api, ApiError, guestStore } from './src/api';
 import { localDate } from './src/date';
 import { refreshReminder } from './src/notifications';
@@ -45,7 +45,7 @@ export default function App() {
     await api.updateProfile(token, input); await load(token); setTab('Home'); refreshReminder(input.reminder).catch(() => {});
   }
   async function refresh() { if (token) await load(token); }
-  if (starting) return <SafeAreaView style={[styles.screen, s.center]}><StatusBar barStyle="dark-content" /><ActivityIndicator size="large" color={colors.blue} /><Text style={styles.subtle}>Getting your day ready</Text></SafeAreaView>;
+  if (starting) return <SafeAreaView style={[styles.screen, s.center]}><StatusBar barStyle="dark-content" /><Image source={require('./assets/icon.png')} style={{ width: 96, height: 96, borderRadius: 28 }} /><ActivityIndicator size="small" color={colors.blue} /><Text style={styles.subtle}>Getting your day ready</Text></SafeAreaView>;
   if (!token) return <SafeAreaView style={styles.screen}><StatusBar barStyle="dark-content" /><Onboarding onDone={finishOnboarding} /></SafeAreaView>;
   if (!data) return <SafeAreaView style={[styles.screen, s.center]}><StatusBar barStyle="dark-content" /><Text style={styles.heading}>Your day is waiting for you</Text><ErrorNote message={error} /><Button title="Try again" onPress={() => load(token).catch(() => {})} /></SafeAreaView>;
   return <SafeAreaView style={styles.screen}><StatusBar barStyle="dark-content" backgroundColor={colors.background} />
