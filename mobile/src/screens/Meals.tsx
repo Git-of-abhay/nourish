@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import * as ImageManipulator from 'expo-image-manipulator';
 import * as ImagePicker from 'expo-image-picker';
 import { Image, KeyboardAvoidingView, Platform, ScrollView, Text, TextInput, View } from 'react-native';
 import { api } from '../api';
@@ -31,7 +32,9 @@ export function Meals({ token, meals, onChanged }: { token: string; meals: Meal[
         : await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 0.75 });
       if (result.canceled || !result.assets[0]) return;
       const asset = result.assets[0];
-      setPhoto({ uri: asset.uri, name: asset.fileName || 'meal.jpg', mimeType: asset.mimeType || 'image/jpeg' });
+      // Shrink the photo first so the upload is small and fast on any connection.
+      const small = await ImageManipulator.manipulateAsync(asset.uri, [{ resize: { width: 1024 } }], { compress: 0.7, format: ImageManipulator.SaveFormat.JPEG });
+      setPhoto({ uri: small.uri, name: 'meal.jpg', mimeType: 'image/jpeg' });
       setAnalysis(null);
     } catch { setError('Couldn’t open that image. Try another or type it in.'); }
   }

@@ -37,8 +37,10 @@ export default function App() {
     finally { setStarting(false); }
   })(); }, [load]);
   async function finishOnboarding(input: GuestInput) {
-    const result = await api.createGuest(input); await guestStore.set(result.token); setToken(result.token);
-    await load(result.token).catch(() => {}); refreshReminder(input.reminder).catch(() => {});
+    const result = await api.createGuest(input); await guestStore.set(result.token);
+    setStarting(true); setToken(result.token);
+    try { await load(result.token); } catch { /* the retry screen handles it */ } finally { setStarting(false); }
+    refreshReminder(input.reminder).catch(() => {});
   }
   async function saveProfile(input: GuestInput) {
     if (!token) return;
