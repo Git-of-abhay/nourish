@@ -4,13 +4,25 @@ import unittest
 from datetime import date
 from pathlib import Path
 
-from dayora import create_app
-from dayora.analysis import AnalysisUnavailable, detect_file_type
+from nourish import create_app
+from nourish.analysis import AnalysisUnavailable, detect_file_type
 
 
 TODAY = date.today().isoformat()
 GUEST = {"name": "Sam", "goal": "move_more", "obstacle": "forget", "reminder": "off", "activity_level": "beginner", "target_kcal": None}
 MEAL = {"name": "Rice", "portion": "1 cup", "kcal": 205, "source": "manual", "logged_on": TODAY}
+
+
+class FakeTranscriber:
+    text = "I had two rotis and dal"
+
+    def transcribe(self, _content, _mime, _extension):
+        return self.text
+
+
+class FakeParser:
+    def parse_spoken_meal(self, transcript):
+        return {"foods": ["roti", "dal"], "description": transcript, "uncertainty": "Portions were not mentioned."}
 
 
 class FakeAnalyzer:
@@ -27,6 +39,8 @@ class ApiTests(unittest.TestCase):
         self.db_path = str(Path(self.temp.name) / "db.sqlite3")
         self.app = create_app({"TESTING": True, "DATABASE_PATH": self.db_path})
         self.app.services["analyzer"] = FakeAnalyzer()
+        self.app.services["transcriber"] = FakeTranscriber()
+        self.app.services["meal_parser"] = FakeParser()
         self.client = self.app.test_client()
         result = self.client.post("/api/guests", json=GUEST)
         self.assertEqual(result.status_code, 201)
@@ -112,6 +126,58 @@ class ApiTests(unittest.TestCase):
         self.assertEqual(response.json["foods"], ["rice"])
         self.assertEqual(self.client.post("/api/analyze/meal", headers=self.headers, json={"file_base64": "!!!"}).status_code, 400)
         self.assertEqual(self.client.post("/api/analyze/meal", headers=self.headers, json={}).status_code, 400)
+
+    def audio_body(self):
+        import base64
+        return {"file_base64": base64.b64encode(b"\x00\x00\x00\x18ftypM4A " + b"x" * 40).decode()}
+
+    def test_voice_meal_is_transcribed_and_parsed(self):
+        response = self.client.post("/api/analyze/voice", headers=self.headers, json=self.audio_body())
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json["transcript"], "I had two rotis and dal")
+        self.assertEqual(response.json["foods"], ["roti", "dal"])
+
+    def test_voice_rejects_non_audio_and_silence(self):
+        import base64
+        bad = {"file_base64": base64.b64encode(b"not audio at all").decode()}
+        self.assertEqual(self.client.post("/api/analyze/voice", headers=self.headers, json=bad).status_code, 400)
+        FakeTranscriber.text = ""
+        try:
+            self.assertEqual(self.client.post("/api/analyze/voice", headers=self.headers, json=self.audio_body()).status_code, 422)
+        finally:
+            FakeTranscriber.text = "I had two rotis and dal"
+
+    def test_voice_meals_can_be_saved_and_earn_a_badge(self):
+        self.client.post("/api/meals", headers=self.headers, json={**MEAL, "source": "voice_estimate"})
+        badges = {b["id"]: b["earned"] for b in self.client.get(f"/api/dashboard?today={TODAY}", headers=self.headers).json["progress"]["badges"]}
+        self.assertTrue(badges["voice_log"])
+        self.assertTrue(badges["first_meal"])
+
+    def test_dashboard_explains_focus_and_progress(self):
+        data = self.client.get(f"/api/dashboard?today={TODAY}", headers=self.headers).json
+        self.assertEqual(data["focus"]["progress"]["unit"], "min")
+        self.assertTrue(data["focus"]["why"])
+        self.assertEqual(data["progress"]["streak"], 0)
+        self.client.post("/api/meals", headers=self.headers, json=MEAL)
+        data = self.client.get(f"/api/dashboard?today={TODAY}", headers=self.headers).json
+        self.assertEqual(data["progress"]["streak"], 1)
+        self.assertTrue(data["progress"]["week"][-1]["active"])
+
+    def test_saved_report_values_become_trends(self):
+        report = FakeAnalyzer().analyze_report(b"", "")
+        self.assertEqual(self.client.post("/api/reports", headers=self.headers, json=report).status_code, 201)
+        high = {**report, "metrics": [{"name": "Glucose", "value": "130", "unit": "mg/dL", "reference": "70-99"}]}
+        self.client.post("/api/reports", headers=self.headers, json=high)
+        trends = self.client.get("/api/metrics", headers=self.headers).json
+        self.assertEqual(len(trends), 1)
+        self.assertEqual(trends[0]["latest"]["status"], "above")
+        self.assertEqual(trends[0]["series"], [95, 130])
+        self.assertEqual(self.client.get(f"/api/dashboard?today={TODAY}", headers=self.headers).json["metric_trends"][0]["key"], "glucose")
+
+    def test_deleting_a_report_removes_its_trend_points(self):
+        report = self.client.post("/api/reports", headers=self.headers, json=FakeAnalyzer().analyze_report(b"", "")).json
+        self.assertEqual(self.client.delete(f"/api/reports/{report['id']}", headers=self.headers).status_code, 204)
+        self.assertEqual(self.client.get("/api/metrics", headers=self.headers).json, [])
 
     def test_report_requires_confirmed_save(self):
         content = b"%PDF-1.4" + b"x" * 20

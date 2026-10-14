@@ -1,4 +1,4 @@
-from dayora import create_app
+from nourish import create_app
 
 app = create_app()
 

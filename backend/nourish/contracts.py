@@ -16,7 +16,8 @@ class WorkoutRepository(Protocol):
 
 
 class ReportRepository(Protocol):
-    def insert_report(self, data: dict) -> dict: ...
+    def insert_report(self, data: dict, points: list[dict]) -> dict: ...
+    def metric_history(self, profile_id: str) -> list[dict]: ...
 
 
 class ImageAnalyzer(Protocol):

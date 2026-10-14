@@ -4,6 +4,7 @@ import secrets
 import uuid
 from datetime import date, timedelta
 
+from . import metrics as markers
 from .contracts import MealRepository, ProfileRepository, ReportRepository, WorkoutRepository
 
 
@@ -107,7 +108,7 @@ class MealService:
         name = _text(payload.get("name"), "name", 100)
         portion = _text(payload.get("portion"), "portion", 80)
         kcal = _int(payload.get("kcal"), "kcal", 0, 5000)
-        source = _choice(payload.get("source", "manual"), "source", {"manual", "photo_estimate"})
+        source = _choice(payload.get("source", "manual"), "source", {"manual", "photo_estimate", "voice_estimate"})
         logged_on = _logged_on(payload.get("logged_on"))
         return self.meals.insert_meal({"id": str(uuid.uuid4()), "profile_id": profile_id, "name": name, "portion": portion, "kcal": kcal, "source": source, "logged_on": logged_on})
 
@@ -140,8 +141,12 @@ class ActivityPlanService:
 
 
 class ReportService:
-    def __init__(self, reports: ReportRepository):
+    def __init__(self, reports: ReportRepository, today=date.today):
         self.reports = reports
+        self.today = today
+
+    def trends(self, profile_id, goal):
+        return markers.build_trends(self.reports.metric_history(profile_id), goal)
 
     def save(self, profile_id, analysis):
         title = _text(analysis.get("title", "Health report"), "title", 100)
@@ -159,4 +164,5 @@ class ReportService:
                 "unit": _text(str(metric.get("unit", "")), "unit", 30, required=False),
                 "reference": _text(str(metric.get("reference", "")), "reference", 100, required=False),
             })
-        return self.reports.insert_report({"id": str(uuid.uuid4()), "profile_id": profile_id, "title": title, "summary": summary, "metrics_json": json.dumps(clean_metrics)})
+        points = markers.to_points(clean_metrics, self.today().isoformat())
+        return self.reports.insert_report({"id": str(uuid.uuid4()), "profile_id": profile_id, "title": title, "summary": summary, "metrics_json": json.dumps(clean_metrics)}, points)

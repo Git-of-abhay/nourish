@@ -54,15 +54,15 @@ class InsightService:
         selected = rules or [MoveMoreRule(), CalorieAwarenessRule(), EatConsistentlyRule(), FeelBetterRule()]
         self.rules = {rule.goal: rule for rule in selected}
 
-    def build(self, profile: dict, meals: list[dict], workouts: list[dict], today: str):
+    def build(self, profile: dict, meals: list[dict], workouts: list[dict], today: str, progress: dict | None = None):
         today_meals = [m for m in meals if m["logged_on"] == today]
         today_workouts = [w for w in workouts if w["logged_on"] == today]
         kcal = sum(m["kcal"] for m in today_meals)
         minutes = sum(w["minutes"] for w in today_workouts)
         rule = self.rules[profile["goal"]]
         suggestion = rule.message(profile, today_meals, minutes, kcal) + OBSTACLE_SUFFIX[profile["obstacle"]]
-        if len(meals) >= 3:
-            recent_days = len({m["logged_on"] for m in meals[:20]})
-            if recent_days >= 3 and profile["goal"] != "move_more":
-                suggestion += f" You’ve shown up on {recent_days} days."
+        if progress and progress["streak_at_risk"]:
+            suggestion += f" Your {progress['streak']}-day streak is waiting, one quick log keeps it going."
+        elif progress and progress["streak"] >= 2:
+            suggestion += f" That’s {progress['streak']} days in a row."
         return {"today_kcal": kcal, "today_meals": len(today_meals), "today_workout_minutes": minutes, "suggestion": suggestion, "target_kcal": profile["target_kcal"]}

@@ -1,5 +1,6 @@
 import base64
 import json
+import uuid
 import subprocess
 import tempfile
 import urllib.error
@@ -20,6 +21,22 @@ def detect_file_type(content: bytes, allow_pdf=False):
         return "image/webp"
     if allow_pdf and content.startswith(b"%PDF-"):
         return "application/pdf"
+    return None
+
+
+def detect_audio(content: bytes):
+    """Returns (mime, extension) from the first bytes, never from what the client claims."""
+    head = content[:12]
+    if head[4:8] == b"ftyp":
+        return "audio/mp4", "m4a"
+    if head[:4] == b"RIFF" and head[8:12] == b"WAVE":
+        return "audio/wav", "wav"
+    if head[:4] == b"\x1a\x45\xdf\xa3":
+        return "audio/webm", "webm"
+    if head[:4] == b"OggS":
+        return "audio/ogg", "ogg"
+    if head[:3] == b"ID3" or (len(head) > 1 and head[0] == 0xFF and head[1] & 0xE0 == 0xE0):
+        return "audio/mpeg", "mp3"
     return None
 
 
@@ -110,3 +127,34 @@ class GroqAnalyzer:
             "summary": str(raw.get("summary", "Check the original report for exact values."))[:800],
             "metrics": [m for m in metrics[:20] if isinstance(m, dict)],
         }
+
+
+class GroqTranscriber:
+    """Speech to text for spoken meals, using Groq's Whisper endpoint."""
+
+    def __init__(self, api_key: str, model: str = "whisper-large-v3-turbo"):
+        self.api_key = api_key
+        self.model = model
+
+    def transcribe(self, content: bytes, mime: str, extension: str) -> str:
+        if not self.api_key:
+            raise AnalysisUnavailable("Voice logging is not configured yet")
+        boundary = "nourish" + uuid.uuid4().hex
+        parts = []
+        for name, value in (("model", self.model), ("response_format", "json"), ("temperature", "0")):
+            parts.append(f'--{boundary}\r\nContent-Disposition: form-data; name="{name}"\r\n\r\n{value}\r\n'.encode())
+        parts.append(f'--{boundary}\r\nContent-Disposition: form-data; name="file"; filename="meal.{extension}"\r\nContent-Type: {mime}\r\n\r\n'.encode() + content + b"\r\n")
+        parts.append(f"--{boundary}--\r\n".encode())
+        request = urllib.request.Request(
+            "https://api.groq.com/openai/v1/audio/transcriptions", data=b"".join(parts), method="POST",
+            headers={"Content-Type": "multipart/form-data; boundary=" + boundary, "Authorization": "Bearer " + self.api_key, "User-Agent": "Nourish/1.0"},
+        )
+        try:
+            with urllib.request.urlopen(request, timeout=30) as response:
+                return str(json.load(response).get("text", "")).strip()
+        except urllib.error.HTTPError as exc:
+            if exc.code == 429:
+                raise AnalysisUnavailable("The model is busy or a rate limit was reached. Try again later.") from exc
+            raise AnalysisUnavailable("I couldn’t transcribe that. You can type the meal instead.") from exc
+        except (urllib.error.URLError, TimeoutError, ValueError) as exc:
+            raise AnalysisUnavailable("I couldn’t transcribe that. You can type the meal instead.") from exc

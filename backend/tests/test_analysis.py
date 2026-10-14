@@ -4,12 +4,12 @@ import unittest
 import urllib.error
 from unittest.mock import patch
 
-from dayora.analysis import AnalysisUnavailable, GroqAnalyzer
+from nourish.analysis import AnalysisUnavailable, GroqAnalyzer
 
 
 class ModelAdapterTests(unittest.TestCase):
     def test_no_key_fails_without_network(self):
-        with patch("dayora.analysis.urllib.request.urlopen") as call:
+        with patch("nourish.analysis.urllib.request.urlopen") as call:
             with self.assertRaises(AnalysisUnavailable):
                 GroqAnalyzer("").analyze_meal(b"image", "image/png")
             call.assert_not_called()
@@ -19,7 +19,7 @@ class ModelAdapterTests(unittest.TestCase):
             def __enter__(self): return self
             def __exit__(self, *_args): self.close()
         payload = {"choices": [{"message": {"content": json.dumps({"foods": ["apple"], "description": "An apple", "uncertainty": "Size unknown"})}}]}
-        with patch("dayora.analysis.urllib.request.urlopen", return_value=Response(json.dumps(payload).encode())) as call:
+        with patch("nourish.analysis.urllib.request.urlopen", return_value=Response(json.dumps(payload).encode())) as call:
             result = GroqAnalyzer("test-key").analyze_meal(b"image", "image/png")
         self.assertEqual(result["foods"], ["apple"])
         sent = json.loads(call.call_args.args[0].data)
@@ -28,7 +28,7 @@ class ModelAdapterTests(unittest.TestCase):
 
     def test_rate_limit_is_actionable_and_does_not_echo_key(self):
         error = urllib.error.HTTPError("https://api.groq.com", 429, "Too Many Requests", {}, io.BytesIO(b""))
-        with patch("dayora.analysis.urllib.request.urlopen", side_effect=error):
+        with patch("nourish.analysis.urllib.request.urlopen", side_effect=error):
             with self.assertRaisesRegex(AnalysisUnavailable, "rate limit") as caught:
                 GroqAnalyzer("secret-key").analyze_meal(b"image", "image/png")
         error.close()
